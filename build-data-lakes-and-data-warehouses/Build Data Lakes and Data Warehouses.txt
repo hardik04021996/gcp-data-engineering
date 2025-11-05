@@ -1,0 +1,195 @@
+Data lakes are created on the premise of "store everything now, figure out how to use it later." With this approach, you apply a structure to the data when you read it (schema-on-read), not when you store it.
+
+A data warehouse, in contrast, is like a highly organized library. Data is cleaned, transformed, and structured before it's stored. This process, known as schema-on-write, ensures the data is optimized for analysis and business intelligence (BI).
+
+Due to their complementary nature, an ideal approach combines the flexibility and low cost of a data lake with the speed and accuracy of a data warehouse. This hybrid approach has created the concept of a data lakehouse. A data lakehouse architecture combines the low-cost storage of a data lake with the management features and query performance of a data warehouse. The goal is to create a single, unified platform that can support traditional BI, modern data science, and AI workloads without moving or duplicating data.
+
+Google Cloud implements data lakehouses through BigLake technology. BigLake allows you to apply Google Cloud’s governance and query capabilities to data stored in Google Cloud or even in other major clouds. You can manage and query your data where it lives, using open formats like Parquet, ORC, and Avro, while benefiting from BigQuery's powerful and flexible query engine.
+
+Q. How does a data lakehouse architecture combine the best features of data lakes and data warehouses?
+Ans. By implementing a metadata and governance layer on top of open-format files in low-cost object storage.
+
+While Cloud Storage is excellent for storing raw files, a data lakehouse needs a way to bring structure and performance to this data. This is where open table formats come into play, and Apache Iceberg is a leading example.
+
+Apache iceberg provides
+- Schema evolution
+- Hidden partitioning
+- Time travel via versioning
+- Atomic transactions
+
+While Cloud Storage and Iceberg provide a flexible, open-standard foundation for storing vast amounts of raw and structured data, BigQuery is the high-performance engine that activates it. By creating BigLake tables, Cymbal can use BigQuery's familiar SQL interface to directly and securely query the Iceberg-formatted data in their Cloud Storage data lake.
+
+AlloyDB is a fully managed, PostgreSQL-compatible database service built for demanding enterprise workloads. It combines the familiarity and flexibility of PostgreSQL with the performance, availability, and scalability needed for critical operational applications. AlloyDB is a high-performance, PostgreSQL-compatible database built for high-throughput transactional workloads (OLTP) like managing orders, customer data, and inventory in real-time
+
+
+Example
+Let’s review how Cymbal optimized marketing and supply chain using a Google Cloud data lakehouse.
+Using BigQuery, analysts ran a single federated query to bring together data from multiple sources:
+- AlloyDB: sales transactions + customer profiles (structured data).
+- Cloud Storage (Iceberg tables): petabytes of clickstream data (semi-structured) showing each customer’s journey from ad click → product page views → checkout or abandonment.
+The analysis uncovered a regional insight:
+- Customers in the Pacific Northwest showed strong interest in a waterproof jacket.
+- But conversion rates were low.
+- By joining behavioral data with product review text in Iceberg tables, they discovered reviews all mentioned a missing set of colors featured in the ads.
+With this insight, Cymbal acted quickly:
+- Updated inventory with the desired jacket colors.
+- Alerted the supply chain to increase stock in that region.
+- Launched a targeted follow-up ad campaign for interested customers.
+- This not only recovered lost sales but also improved marketing ROI and customer experience.
+
+Q. How does BigQuery enable a unified analytics platform in the Cymbal company's data lakehouse?
+Ans. By using federated queries to analyze data directly in external sources like AlloyDB and in Iceberg tables on Cloud Storage without moving the data.
+
+In lab we did:
+- Create a connection to AlloyDB in BigQuery
+- Give the connection service account permission to AlloyDB through an IAM role
+- Write a federated query with the EXTERNAL_QUERY SQL function:
+WITH log AS (
+  SELECT customer_id, log_id, timestamp, url FROM EXTERNAL_QUERY("qwiklabs-gcp-00-xxxxxxxxxxxx.us-east1.AlloyDB-weblog", "SELECT customer_id, CAST(log_id AS VARCHAR(200)) AS log_id, timestamp, url FROM web_log LIMIT 100"))
+SELECT  log.customer_id
+, log.timestamp
+, log.url
+, C.*
+FROM customers.customer_details AS C
+INNER JOIN log
+ON C.id = log.customer_id
+ORDER BY C.id
+LIMIT 100;
+
+
+Q. how BigQuery achieves its incredible speed by examining two core concepts: slots and shuffle.
+Ans. Think of a slot as a virtual worker—a small, self-contained unit of computational power that includes CPU, RAM, and network bandwidth. When you run a query, BigQuery's Dremel engine assigns potentially thousands of these slots to your job. Each slot processes a small piece of your data simultaneously. This is the "massively parallel processing" that allows BigQuery to scan terabytes of data so quickly. When the results from all those parallel workers need to be combined, such as for a `GROUP BY` or a `JOIN`, the shuffle comes in. Shuffle is the process of redistributing the intermediate data that the slots have processed. Using Google’s petabit internal network, Jupiter, shuffle gathers and reorganizes this data, sending it to the next set of slots for further processing like aggregation or joining. This incredibly fast redistribution of data between query stages is essential for executing complex analytical queries efficiently at a massive scale.
+
+
+When you query data in Cloud Storage, such as open-format Apache Iceberg tables, BigLake acts as a bridge. It gives Dremel the instructions to read and process that data directly from your data lake as if it were native, applying the same powerful parallel processing.
+
+For external databases like AlloyDB, BigQuery uses federated queries. In this case, Dremel intelligently "pushes down" parts of the query to AlloyDB. The external database executes the query on its own data and streams only the results back to BigQuery’s compute engine for any final joining or aggregation.
+
+This decoupled architecture transforms BigQuery from a simple data warehouse into a unified analytics engine, allowing you to run a single SQL query that seamlessly combines data living in the warehouse, the data lake, and operational databases.
+
+You can optimize the run time of querries with two powerful techniques: partitioning and clustering.
+Partitioning is like adding dividers to a filing cabinet. Instead of one giant drawer, you have separate sections for each year, month, or day. In BigQuery, you can partition a table based on a date or an integer column.
+While partitioning divides the data into large chunks, clustering sorts the data within each of those chunks. Think of it as organizing the files within each drawer of your filing cabinet alphabetically by customer name.
+
+BigLake acts as a storage engine and connector that allows you to extend the capabilities of BigQuery to your data in object storage, like Google Cloud Storage. BigLake lets you create tables in BigQuery that do not hold the data themselves but instead point to the data files living in your data lake. These are called external tables.
+
+Q. Which statement is true? 
+- BigQuery offers first-class, native support for Apache Iceberg through BigLake, understanding its metadata for advanced optimizations like partitioning and clustering, and allowing direct UPDATE, DELETE, and MERGE statements on Iceberg tables.
+- BigQuery can only read data from Iceberg tables but cannot perform write operations like UPDATE, DELETE, or MERGE.
+Ans. BigQuery offers first-class, native support for Apache Iceberg through BigLake, understanding its metadata for advanced optimizations like partitioning and clustering, and allowing direct UPDATE, DELETE, and MERGE statements on Iceberg tables.
+
+Dataplex: manage metadata and governance across the new lakehouse. As your data grows, managing it can become a signifi cant challenge. Dataplex provides an intelligent data fabric that allows you to discover, manage, monitor, govern, and describe your data across your entire lakehouse.
+It can automatically catalog the data in their GCS buckets, making it easily searchable for their data analysts and scientists. It also helps enforce data quality rules and security policies, ensuring that sensitive customer information is protected.
+
+Sensitive Data Protection: The process includes the following functions: Discovery, Classification, and Protection". This is the explicit methodology used to find and secure sensitive information.
+
+Cost management and optimization
+A key benefit of the cloud is the pay-as-you-go model, but it also requires a proactive approach to cost management. Here are some best practices that Cymbal would implement:
+1. Choose the right storage class: Not all data needs to be accessed with the same frequency. For the raw data in their Bronze zone, which might be accessed infrequently, they can use a cheaper storage class like Nearline or Coldline in Cloud Storage.
+2. Optimize BigQuery queries: They can train their analysts to write efficient SQL queries. BigQuery provides tools to estimate the cost of a query before it's run. They can also use features like partitioning and clustering their tables to reduce the amount of data scanned by each query.
+3. Use BigQuery's flat-rate pricing: For predictable workloads, Cymbal can switch from on-demand pricing to a flat-rate model, where they purchase dedicated query processing capacity at a fixed monthly cost.
+4. Set up budgets and alerts: In Google Cloud's billing console, they can set up budgets for their projects and create alerts that notify them when costs are approaching their limits.
+
+BigQuery ML creates and executes machine learning models in BigQuery using standard SQL queries.
+
+BigQuery ML enables users to create and execute machine learning models in BigQuery using SQL queries. The goal is to democratise machine learning by enabling SQL practitioners to build models using their existing tools and to increase development speed by eliminating the need for data movement.
+There is an available ecommerce dataset that has millions of Google Analytics records for the Google Merchandise Store loaded into BigQuery. With below query, you use this data to create a model that predicts whether a visitor will make a transaction:
+CREATE OR REPLACE MODEL `bqml_lab.sample_model`
+OPTIONS(model_type='logistic_reg') AS
+SELECT
+  IF(totals.transactions IS NULL, 0, 1) AS label,
+  IFNULL(device.operatingSystem, "") AS os,
+  device.isMobile AS is_mobile,
+  IFNULL(geoNetwork.country, "") AS country,
+  IFNULL(totals.pageviews, 0) AS pageviews
+FROM
+  `bigquery-public-data.google_analytics_sample.ga_sessions_*`
+WHERE
+  _TABLE_SUFFIX BETWEEN '20160801' AND '20170631'
+LIMIT 100000;
+Explanation: Here the visitor's device's operating system is used, whether said device is a mobile device, the visitor's country and the number of page views as the criteria for whether a transaction has been made. In this case, bqml_lab is the name of the dataset and sample_model is the name of the model. The model type specified is binary logistic regression. In this case, label is what you're trying to fit to.
+Note: If you're only interested in 1 column, this is an alternative way to setting input_label_cols.
+The training data is being limited to those collected from 1 August 2016 to 30 June 2017. This is done to save the last month of data for "prediction". It is further limited to 100,000 data points to save some time.
+Running the CREATE MODEL command creates a Query Job that will run asynchronously so you can, for example, close or refresh the BigQuery UI window.
+
+To evaluate model, you use query:
+#standardSQL
+SELECT
+  *
+FROM
+  ml.EVALUATE(MODEL `bqml_lab.sample_model`, (
+SELECT
+  IF(totals.transactions IS NULL, 0, 1) AS label,
+  IFNULL(device.operatingSystem, "") AS os,
+  device.isMobile AS is_mobile,
+  IFNULL(geoNetwork.country, "") AS country,
+  IFNULL(totals.pageviews, 0) AS pageviews
+FROM
+  `bigquery-public-data.google_analytics_sample.ga_sessions_*`
+WHERE
+  _TABLE_SUFFIX BETWEEN '20170701' AND '20170801'));
+Explanation:  Here, the SELECT and FROM portions of the query are identical to that used during training. The WHERE portion reflects the change in time frame and the FROM portion shows that you're calling ml.EVALUATE.
+
+With below query, you try to predict the number of transactions made by visitors of each country, sort the results, and select the top 10 countries by purchases:#standardSQL
+SELECT
+  country,
+  SUM(predicted_label) as total_predicted_purchases
+FROM
+  ml.PREDICT(MODEL `bqml_lab.sample_model`, (
+SELECT
+  IFNULL(device.operatingSystem, "") AS os,
+  device.isMobile AS is_mobile,
+  IFNULL(totals.pageviews, 0) AS pageviews,
+  IFNULL(geoNetwork.country, "") AS country
+FROM
+  `bigquery-public-data.google_analytics_sample.ga_sessions_*`
+WHERE
+  _TABLE_SUFFIX BETWEEN '20170701' AND '20170801'))
+GROUP BY country
+ORDER BY total_predicted_purchases DESC
+LIMIT 10;
+Explanation: This query is very similar to the evaluation query demonstrated in the previous section. Instead of ml.EVALUATE, you're using ml.PREDICT and the BigQuery ML portion of the query is wrapped with standard SQL commands. For this lab you're interested in the country and the sum of purchases for each country, so that's why SELECT, GROUP BY and ORDER BY. LIMIT is used to ensure you only get the top 10 results.
+
+BigQuery Vector Search Vector search allows you to find the most similar items in your dataset by comparing the mathematical representations of their features, known as embeddings, rather than relying on exact keyword matches.
+Steps:
+- Create embedding model:
+CREATE OR REPLACE MODEL `bqml_lab.embedding_model`
+  REMOTE WITH CONNECTION DEFAULT
+  OPTIONS (ENDPOINT = 'text-embedding-005');
+- Use an ML model to generate embeddings:
+CREATE OR REPLACE TABLE `bqml_lab.embeddings` AS
+SELECT * FROM ML.GENERATE_EMBEDDING( MODEL `bqml_lab.embedding_model`,
+  (    SELECT
+   title,
+   url,
+   abstract AS content
+ FROM
+   `bqml_lab.patent_data`
+ LIMIT 200000))
+WHERE LENGTH(ml_generate_embedding_status) = 0;
+- Create a vector index:
+CREATE OR REPLACE VECTOR INDEX my_index
+ON `bqml_lab.embeddings`(ml_generate_embedding_result)
+OPTIONS(index_type = 'IVF',
+  distance_type = 'COSINE',
+  ivf_options = '{"num_lists":500}');
+- Check status of vector index if it is ready to be used:
+SELECT table_name,
+  index_name,
+  index_status,
+  coverage_percentage,
+  last_refresh_time,
+  disable_reason
+FROM `qwiklabs-gcp-01-5ba4f0d9f320.bqml_lab.INFORMATION_SCHEMA.VECTOR_INDEXES`;
+NOTE: The index is ready to be used when the coverage_percentage column value is greater than 0 and the last_refresh_time column value isn't NULL.
+- Use the VECTOR_SEARCH function to perform text embedding search using the vector index you created:
+SELECT query.query, base.title, base.content
+FROM VECTOR_SEARCH(
+  TABLE `bqml_lab.embeddings`, 'ml_generate_embedding_result',
+  (
+  SELECT ml_generate_embedding_result, content AS query
+  FROM ML.GENERATE_EMBEDDING(
+  MODEL `bqml_lab.embedding_model`,
+  (SELECT 'improving online shopper search results' AS content))
+  ),
+  top_k => 5, options => '{"fraction_lists_to_search": 0.01}');

@@ -1,0 +1,12 @@
+Given a text file, your job is to convert this transcript into a detailed, technical markdown (`.md`) file containing concise, to-the-point notes about the specific Spark fundamental covered in the transcript.
+- Focus on extracting technical content and key concepts from the transcript.
+- Use clear bullet points and sub-bullets for structure.
+- Summarize and rephrase content to be concise, to the point, and technical.
+- If appropriate, include (only if necessary to explain a point):
+  - Tables for comparisons or structured data
+  - Flow charts or architecture diagrams (use Mermaid syntax)
+- Highlight important terms and concepts.
+- Omit conversational or non-technical content.
+- The output should be a well-organized markdown file suitable for technical review or study.
+- The markdown file should be titled and structured according to the fundamental concept indicated in the filename with words in filename seperated by "-"
+- Add Q&A content from the original transcript alongside technical explanations and examples.
