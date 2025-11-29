@@ -1,0 +1,18 @@
+Q. What is a key benefit of Google Cloud's Managed Service for Apache Kafka?
+Answer: Managed Service for Apache Kafka handles the heavy lifting of operational tasks, such as:
+- Sizing: scaling the brokers to meet demand
+- Rebalancing: redistributing partitions across the cluster to ensure even load distribution. 
+This allows developers to focus on building their applications rather than managing the underlying infrastructure.
+
+Q. Google Cloud Pub/Sub provides native support for exactly-once message processing without requiring additional idempotent logic in the subscriber application.
+Options: True, False
+Answer: False
+Explanation: While Pub/Sub offers "at-least-once" delivery and features like ordering keys and custom message IDs for deduplication, achieving true exactly-once processing typically still requires the subscriber to implement idempotent logic to handle potential duplicate deliveries. Managed Service for Apache Kafka, with configuration, can provide exactly-once processing guarantees.
+
+Advantages of Pub/Sub:
+- It is a fully managed, "no-ops" service that simplifies operations by removing the need for cluster management.
+- It is completely serverless and offers a pay-for-what-you-use pricing model.
+- It automatically integrates with a wide range of Google Cloud services without the need for additional connectors.
+Cons of Pub/Sub:
+- It does not guarantee strict message ordering across all messages within a topic without affecting throughput.
+- It does not provide long-term message persistence, not allowing consumers to replay data from any historical offset.
