@@ -16,3 +16,137 @@ Advantages of Pub/Sub:
 Cons of Pub/Sub:
 - It does not guarantee strict message ordering across all messages within a topic without affecting throughput.
 - It does not provide long-term message persistence, not allowing consumers to replay data from any historical offset.
+
+In Pub/Sub, four subscription methods that subscribers can use to receive messages:
+- Pull subscription: This is where the subscriber application actively requests (pulls) messages from the Pub/Sub service when it is ready to process them. This model provides the subscriber with more control over the message consumption rate.
+- Push subscription: This service automatically sends (pushes) messages to a publicly accessible HTTP endpoint (a webhook) you specify. This is ideal for real-time applications and serverless architectures like Cloud Functions, where the subscriber is triggered by the arrival of a new message.
+- BigQuery subscription: A specialized subscription that automatically writes messages from a topic directly into a BigQuery table. This is a simple and efficient way to ingest streaming data for analytics without needing to run a separate processing job.
+- Cloud storage subscription: This is a specialized subscription that automatically writes messages from a topic into a Cloud Storage bucket as files.
+
+One of the most valuable benefits of Pub/Sub is its ability to decouple services.
+
+Single message transforms (SMT): SMTs enable lightweight modifications to message data and attributes directly within Pub/Sub. One example is a JavaScript user-defined function (UDFs) for lightweight, in-stream transformations.
+
+Pub/Sub integrations and advanced features at subscriber: Delivery and reliability
+- Push vs. pull: Subscribers can either actively pull messages or receive them via push to an HTTP/S endpoint.
+- Exactly-once delivery: Pub/Sub provides exactly-once delivery for pull subscriptions within a single region by using a persistent deduplication layer to ensure messages are not redelivered after a successful acknowledgment.
+- Message filtering: Subscriptions can be configured to deliver only messages matching specific attributes.
+- Message ordering: Offers ordering within keys, though it may slightly increase latency.
+- Dead-letter topics (DLTs): Reroutes messages that fail processing, preventing pipeline blockage.
+
+Q. How Pub/Sub and Vertex AI can be used together for a real-time online ad bidding use case in the Galactic Grand Prix?
+Q. How can a real-time anti cheat use case be implemented in the Galactic Grand Prix using Managed Service for Apache Kafka and Vertex AI?
+
+Dataflow is used to overcome the challenges of processing streaming data, such as:
+- Latency and ordering: Dataflow processes data in event time, not arrival time. Its watermark system acts as a shared "game clock," allowing it to understand the true sequence of events.
+- Scalability: Dataflow is serverless and autoscales automatically, spinning up and down workers as needed based on the throughput and complexity of your pipelines.
+- Fault tolerance: Dataflow provides the streaming engine backend, which provides a persistent state to make sure data is not lost or duplicated. It also redirects tasks to replacement workers.
+- Data quality and completeness
+Challenge: In the final lap, two problems arise: a car's sensor sends a corrupted speed reading, and the winner's "finish line" event is delayed by network lag. You can't let a bad record crash the live dashboard, and you can't declare the wrong winner.
+Dataflow handles both. For quality, a dead-letter pattern in your Beam code instantly isolates the bad sensor data for debugging while the main pipeline continues uninterrupted. For completeness, watermarks, triggers, and allowed lateness act as your photo-finish toolkit. A provisional lap time is shown instantly. Then, with AllowedLateness keeps the time window open just long enough for the delayed data to arrive, allowing a late trigger to fire and push the official, corrected result to the leaderboard ensuring both speed and accuracy.
+- Predictive analytics and fair play
+Challenge: A new, subtle cheat is giving some players an unfair advantage. It’s impossible to spot manually in the millions of events per second. You need to detect and act on this behavior in real-time.
+Dataflow's solution: Dataflow ML can deploy a pre-trained anomaly detection model directly into the pipeline.
+Real-time Inference: After parsing the raw event data, you add a RunInference transform. This transform feeds each player's stream of actions (e.g., aiming speed, resource collection rates) into a PyTorch or TensorFlow model trained to distinguish between human and bot-like behavior.
+Immediate Action: If the model flags a player's actions as highly anomalous, the pipeline can automatically send that player's data to a separate BigQuery table for moderator review and trigger a real-time alert. This turns your data pipeline into an active defense system.
+
+Dataflow ML: Any Dataflow pipeline can incorporate machine learning inference in below 4 stages:
+- Ingest: Use Dataflow to read data from various sources, such as Pub/Sub, Cloud Storage, or BigQuery.
+- MLTransform: Generate embeddings
+- Enrichment Transform: Enrich data joining it with a key value lookup to a remotes service.
+- RunInference API: Provide enriched data to an LLM for performing real-time predictions
+
+BigQuery: BigQuery is a SQL columnar storage system, it's optimized for analytical queries making it perfect for answering business-critical questions.
+
+BigQuery's architecture and power fundamentally shift the paradigm towards ELT because it:
+- Reduces pipeline complexity by removing the need for a separate transformation engine for many use cases.
+- Leverages BigQuery’s serverless, massively parallel processing engine for transformations.
+- Preserves raw data, allowing you to re-run transformations or perform new types of analysis without having to re-ingest it.
+
+BigQuery tabledata.insertALL API vs BigQuery Storage Write API
+- The tabledata.insertALL API is a simple method for inserting individual rows into BigQuery tables. It is suitable for low-throughput scenarios and small-scale applications where data arrives sporadically.
+- The Storage Write API is designed for high-throughput, low-latency data ingestion into BigQuery. It supports streaming large volumes of data efficiently and is ideal for real-time analytics use cases.
+
+Implicit vs Explicit Streaming in BigQuery
+- Implicit streaming
+    - This is the “easy mode.” With the older / default-insert approach (or using the default stream of the Write API), you don’t explicitly set up a stream object. You just call an insert or append operation (e.g. using the legacy tabledata.insertAll API or via the default stream) and BigQuery takes care of the rest. 
+    - As soon as BigQuery acknowledges the insert, rows are available for querying (i.e. “committed”) almost immediately. 
+    - This is the “default” if you don’t explicitly create streams: simple, minimal configuration, good for many real-time / streaming workloads. 
+    - Trade-offs: you get “at-least-once” semantics by default — duplicates possible if you retry insert.
+- Explicit streaming
+    - Here, you explicitly create one or more write streams (via the Storage Write API), specifying the type of stream (committed, buffered, pending).
+    - This gives you more control: you can batch writes, atomically commit a group of writes, manage exactly-once semantics, flush writes, etc. 
+    - Useful when you want stronger guarantees (e.g. exactly-once), or when you write data in larger batches rather than one-by-one, or when you want to control when data becomes visible.
+
+What “committed / buffered / pending” mean in simpler (layman) terms
+Committed → “Write now, see now.” You insert a row → it's visible immediately.
+Buffered → “Write now, show when I say so.” You insert, but nothing shows until you flush. Good if you want to release a batch of rows together.
+Pending → “Write now, but invisible until I finish writing everything and commit.” Useful when you have a big batch or multiple streams and want the whole batch to appear at once.
+
+BigQuery Data Transfer Service (DTS):
+- DTS is a fully managed service that automates data movement into BigQuery on a scheduled, managed basis.
+- It supports various data sources, including Google SaaS applications (e.g., Google Ads, Campaign Manager), external cloud storage services, and on-premises databases (via transfer agents).
+
+BigQuery Change Data Capture (CDC):
+- BigQuery CDC captures and streams changes (inserts, updates, deletes) from source databases to BigQuery in near real-time.
+- It ensures that BigQuery reflects the current state of the source data, enabling up-to-date analytics and reporting.
+
+BigQuery Continuous Queries:
+BigQuery continuous queries are a modern evolution of the classic ETL process, powerful enough for real-time transformations. They are SQL statements that execute continuously, processing data as it arrives in your BigQuery tables in real-time.
+They offer:
+- Continuous execution: Queries run indefinitely to process new data.
+- SQL-based: Uses the familiar language of SQL to define real-time data transformations and analysis.
+- Event-driven: Triggers actions based on incoming data, turning BigQuery into an event-driven processing engine.
+- Simplified real-time pipelines: Eliminates the need for additional technologies and specialized programming skills.
+- Real-time AI use cases: Integrates with Vertex AI and Gemini to enable real-time AI-powered applications.
+- Streamlined reverse ETL: Easily sends the results of a continuous query to other systems like Pub/Sub and Bigtable.
+- Scalability and performance: Backed by BigQuery's serverless infrastructure to handle massive data volumes with high throughput and low latency.
+
+Q. The primary purpose of clustering a BigQuery table is to automatically segment the data by a specific date or timestamp column, which can help prune partitions and reduce query costs.
+Options: True, False
+Answer: False
+Explanation: This statement describes partitioning, not clustering. Partitioning divides a table into segments based on a date, timestamp, or integer column. Clustering, on the other hand, co-locates related data within partitions based on the values in one or more specified columns, which improves the performance of queries that filter or aggregate on those clustered columns.
+
+require_partition_filter is a native BigQuery table option that forces all queries to include a filter on the partition column. It protects you from expensive full-table scans by rejecting queries that do not specify which partitions to read. It’s the simplest and most effective way to enforce proper partition usage.
+
+Q. A data analyst complains that their queries on a large, multi-year historical sales data table are slow and costly. The queries often filter by the transaction date and group by product category. Which of the following BigQuery features could be used to improve query performance and reduce costs for this specific workload?
+Answer:
+- Creating a materialized view for common aggregations: Since the analyst is running common aggregations (grouping by category), a materialized view could pre-compute and store these results. Queries that match the materialized view's logic would read from the much smaller, pre-aggregated table instead of the raw data, making them significantly faster and cheaper.
+- Partitioning the table by transaction date: Partitioning the table by date (for example, daily or monthly) is the most effective optimization here. When queries filter by the transaction date, BigQuery can prune partitions, meaning it only scans the data in the relevant date partitions, dramatically reducing the amount of data processed, which lowers cost and improves speed.
+- Clustering the table by product category: After partitioning by date, clustering by product_category would physically co-locate data for the same category within each partition. This improves the performance of queries that filter or group by category, as BigQuery can more efficiently read the relevant blocks of data.
+
+Q. A social media company uses a single, massive BigQuery table to store all user events (likes, posts, comments), which is partitioned by day. The Data Science team needs to run complex machine learning training queries that scan months of historical data. At the same time, the Product Analytics team runs many small, concurrent dashboard queries that typically look at the last 7 days of data. The analytics dashboards are becoming slow whenever the ML training jobs are running. What is the best way to ensure the Product Analytics team's dashboards remain fast and responsive without stopping the Data Science team's work?
+Answer: Switch BigQuery from the on-demand pricing model to a flat-rate model and create separate reservations/assignments for the Data Science and Product Analytics teams.
+Explanation: Flat-rate reservations are designed specifically for this scenario. By purchasing a dedicated amount of slot capacity (BigQuery's unit of compute) and creating separate reservations, you can assign one pool of slots to the Data Science team (for their heavy, long-running jobs) and another pool to the Analytics team (for their short, high-concurrency dashboard queries). This guarantees that a surge in demand from one team does not consume the compute resources needed by the other, ensuring consistent performance for both.
+
+Q. A development team is storing live operational data for a mobile application in a Bigtable instance to ensure low-latency reads and writes for the app. A business analyst needs to run an ad-hoc SQL query on this live data to analyze a recent trend. What is the most efficient and recommended way to achieve this without impacting the mobile application's performance?
+Answer: Create an external table in BigQuery that points to the Bigtable instance, and have the analyst run their query against that external table using a 'Data Boost' profile.
+Explanation: This is the exact use case for the BigQuery and Bigtable integration. Creating an external table allows BigQuery to query the data directly within Bigtable using familiar SQL. Using Data Boost is the critical part that ensures performance isolation; it runs the analytical query using dedicated, on-demand compute resources, which guarantees that the heavy analytical workload will not interfere with the low-latency traffic from the production mobile application.
+Data Boost Profile is a special query execution option in BigQuery that lets certain queries run on dedicated, isolated compute resources, completely separated from your normal BigQuery processing slots and from your operational systems like Bigtable.
+
+Q. In BigQuery's serverless architecture, query processing capacity (compute) is tightly coupled with the amount of data you have stored. To improve query performance, you must first increase your storage capacity.
+Options: True, False
+Answer: False
+Explanation: BigQuery's architecture fundamentally separates compute from storage. This is a core concept. Query processing is handled by the Dremel engine, which allocates and scales compute resources automatically and independently of the storage layer. You do not need to provision or scale storage to get more query power. This separation allows BigQuery to handle petabyte-scale queries without requiring users to manage underlying infrastructure.
+
+Q. An organization is building a real-time fraud detection system. A machine learning model, trained and deployed on Vertex AI, needs to make a prediction for every incoming financial transaction. To do this, the model must look up historical user behavior patterns and recent transaction characteristics with single-digit millisecond latency. The system must also ingest millions of new transaction events per second.
+Why is Bigtable is an excellent choice to support this Vertex AI-powered system? 
+Answer:
+- Bigtable can be used as a low-latency online feature store, serving feature data to the Vertex AI model for real-time predictions.
+- Bigtable's high write throughput is ideal for ingesting the massive-scale streaming transaction data as it happens.
+- Bigtable's horizontal scalability ensures that as the number of users and transactions grows, the system can maintain its low-latency performance for feature lookups.
+
+Q. An e-commerce platform is designing a real-time fraud detection system. For each incoming purchase, the system must check the customer's static profile data (name, address) and their 5 most recent transactions. This entire lookup must complete in under 20 milliseconds. Which Bigtable schema design would be most effective for meeting this low-latency requirement?
+Answer: Use a single "wide" table with a row key of customerID. Store profile data in a profile column family and each new transaction in the transactions column family. Fetch the required data with a single ReadRows request for that customerID, configured to retrieve the 5 most recent cells from the transactions family.
+Explanation: This approach is the most performant. Using the customerID as the row key allows you to fetch all the necessary data (profile and transactions) in a single, highly-optimized ReadRows operation. Bigtable is designed to efficiently retrieve a specified number of the most recent cells (versions) in a column, making it ideal for "latest N" queries like this.
+
+Q. A development team stores a large volume of historical user activity data in a Bigtable table. Which of the following are valid and recommended methods for analyzing or interacting with this data?
+Answer:
+- Executing a federated query from BigQuery to run interactive SQL analysis without moving the data.
+- Using the native HBase client for programmatic data access in a Java application because Bigtable is compatible with the HBase API.
+- Serving low-latency requests (e.g., retrieving a user's last 10 actions) for a user-facing application dashboard.
+
+Q. For ingesting high-volume time-series data, the optimal row key design is to always begin the key with the event timestamp (e.g., 2025-09-15T10:30:00Z#sensor_123) to ensure data is stored chronologically and is optimized for fast range scans.
+Options: True, False
+Answer: False
+Explanation: While starting a row key with a timestamp does store data chronologically, it is a common anti-pattern for high-throughput ingestion. This design would cause all new writes to target a single node in the Bigtable cluster, creating a performance bottleneck known as "hotspotting." A better practice is to design the key to distribute writes, for example, by prefixing it with a more varied value like a sensor ID or by using a reversed timestamp.

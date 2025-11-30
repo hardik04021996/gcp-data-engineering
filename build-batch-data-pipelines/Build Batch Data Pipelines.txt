@@ -63,3 +63,45 @@ Explanation:
 - The DLQ is primarily for isolating and storing the raw, problematic records so the main pipeline can continue. While essential for not losing data, it's not structured for aggregated analysis.
 - Error logs provide detailed, event-level context for each failure, crucial for troubleshooting specific instances.
 - Data cleansing functions are used to correct or remove inconsistencies in the data, but they don't inherently provide aggregated error analysis.
+
+Facade View Pattern:
+The Facade View Pattern is a design strategy used to manage breaking changes in data schemas without disrupting downstream consumers, such as dashboards or reports. When a critical change, like renaming a column, is necessary, the Facade View Pattern involves creating a database view that maintains the original schema expected by consumers. This view acts as an intermediary layer that maps the old column names to the new ones.
+This architectural pattern isolates data consumers from backend changes, ensuring a seamless transition with no downtime.
+Steps to implement Facade View Pattern:
+1. Deploy a New Pipeline. Configure and deploy an updated version of your pipeline to write the transformed data to a new, separate destination table (e.g., data_v2).  
+2. Create a Unifying View. In your data warehouse, create or update a single VIEW that sits in front of both the old and new tables. This view uses a UNION ALL statement to combine the data and present it as a single, consistent table.
+3. Redirect Consumers. Point all downstream dashboards, reports, and applications to this stable facade view instead of the underlying physical tables.
+
+Schema On Write vs Schema On Read:
+Schema on Write: The schema is strictly enforced when the pipeline tries to write the data. BigQuery operates on this model, requiring data to conform to a predefined table structure.
+Schema on Read: Data is stored in its raw format, often in files like JSON or CSV in a Cloud Storage data lake. The structure is flexible, and a schema is only applied when the pipeline reads the data
+
+To solve problem of Key-based duplicates in Apache Beam, you have below options:
+CombinePerKey vs. GroupByKey:
+CombinePerKey: For associative and commutative aggregations like finding the max value, CombinePerKey is far more scalable and should be your default choice.
+GroupByKey: For non-aggregating use cases where you truly need all elements for a key (like joining two datasets), GroupByKey is the correct tool.
+
+GroupByKey involves a shuffle operation that redistributes all records for each key across the workers. This can lead to significant data movement and potential bottlenecks, especially with skewed data where some keys have a disproportionately large number of associated values.
+
+CombinePerKey works in two stages to optimize performance:
+Local combine (pre-shuffle): On each worker, the CombineFn reduces all records for a key down to a single "best" record for that worker. A million records for a hot key might become just one.
+Global combine (post-shuffle): The shuffle now moves only these few pre-combined records. The final worker simply merges these candidates to find the globally "best" record.
+
+To solve problem of Key-based duplicates in Apache Spark, you can use Window functions:
+While a window function requires a data shuffle to group keys together, Modern Spark query engines are highly optimized for this.
+For Spark SQL and DataFrame batch queries, Adaptive Query Execution (AQE) automatically detects and mitigates data skew, by breaking large partitions into smaller chunks to prevent bottlenecks.
+This improves performance and ensures efficient job execution. 
+
+orchestration tools: Cloud Scheduler, Workflows, Cloud Composer
+Use Case: Recommended Tool
+Simple cron trigger: Cloud Scheduler
+Orchestrate APIs or lightweight ETL logic: Workflows
+Heavy, enterprise-grade data pipelines: Cloud Composer (Airflow)
+
+Q. What is the primary benefit of writing logs in a structured, key-value format instead of as plain text strings?
+Answer: It makes logs easy to filter and search with precise criteria, which drastically accelerates debugging. Structuring logs transforms them from simple text into a queryable dataset, allowing you to instantly filter for the exact information you need
+
+Data Fusion Vs Dataproc vs Dataflow
+Data Fusion: Data Fusion is a visual-first service. You design pipelines in a graphical user interface (GUI), and Data Fusion runs them on a managed Dataproc cluster. It's built for rapid development and accessibility for those on your team (or other stakeholders) who may not be expert coders. It's ideal when your team is building connector-heavy integration workflows.
+Dataflow: Dataflow is a code-first service. You write your pipeline logic in Python (or Java) using the Apache Beam SDK. It's great for when you need fine-grained control over your pipeline logic for complex batch (or streaming) transformations.
+Dataproc: Dataproc is a managed Spark and Hadoop service. You have full control over your cluster and can run any Spark, Hive, or Hadoop jobs you want. It's best suited for teams with deep expertise in the Hadoop ecosystem who need to run custom big data workloads.

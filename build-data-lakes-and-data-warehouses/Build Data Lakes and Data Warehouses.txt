@@ -193,3 +193,4 @@ FROM VECTOR_SEARCH(
   (SELECT 'improving online shopper search results' AS content))
   ),
   top_k => 5, options => '{"fraction_lists_to_search": 0.01}');
+
